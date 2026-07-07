@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analisador de Fatura — Águas do Piauí</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F5F3EE;
+    --surface: #FAFAF7;
+    --card: #FFFFFF;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.15);
+    --text-primary: #1A1A18;
+    --text-secondary: #6B6B67;
+    --text-muted: #9B9B97;
+    --accent: #1D4ED8;
+    --accent-light: #EFF6FF;
+    --success: #15803D;
+    --success-bg: #F0FDF4;
+    --success-border: #86EFAC;
+    --danger: #DC2626;
+    --danger-bg: #FFF5F5;
+    --danger-border: #FCA5A5;
+    --warning: #92400E;
+    --warning-bg: #FFFBEB;
+    --water: #0369A1;
+    --water-light: #E0F2FE;
+    --mono: 'DM Mono', monospace;
+    --display: 'Syne', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+
+  body {
+    font-family: var(--body);
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-icon {
+    width: 36px; height: 36px;
+    background: var(--water-light);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .header-icon svg { width: 20px; height: 20px; color: var(--water); }
+  .header h1 {
+    font-family: var(--display);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text-primary);
+  }
+  .header span {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: auto;
+    font-family: var(--mono);
+  }
+
+  /* LAYOUT */
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+  /* UPLOAD ZONE */
+  .upload-section { margin-bottom: 2rem; }
+  .upload-zone {
+    border: 1.5px dashed var(--border-strong);
+    border-radius: 16px;
+    padding: 3rem 2rem;
+    text-align: center;
+    background: var(--card);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-light);
+  }
+  .upload-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-icon {
+    width: 56px; height: 56px;
+    background: var(--water-light);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 1rem;
+  }
+  .upload-icon svg { width: 28px; height: 28px; color: var(--water); }
+  .upload-title {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+  }
+  .upload-sub { font-size: 14px; color: var(--text-secondary); }
+  .upload-btn {
+    display: inline-block;
+    margin-top: 1.25rem;
+    background: var(--water);
+    color: white;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: var(--body);
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .upload-btn:hover { opacity: 0.9; }
+
+  /* LOADING */
+  .loading-bar {
+    display: none;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 1.5rem;
+    overflow: hidden;
+  }
+  .loading-bar.active { display: block; }
+  .loading-fill {
+    height: 100%;
+    background: var(--water);
+    border-radius: 2px;
+    animation: loading 1.5s ease-in-out infinite;
+  }
+  @keyframes loading {
+    0% { width: 0; margin-left: 0; }
+    50% { width: 70%; margin-left: 15%; }
+    100% { width: 0; margin-left: 100%; }
+  }
+  .loading-text {
+    display: none;
+    text-align: center;
+    margin-top: 0.75rem;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-family: var(--mono);
+  }
+  .loading-text.active { display: block; }
+
+  /* RESULTS */
+  .results { display: none; }
+  .results.active { display: block; }
+
+  /* FILE INFO BAR */
+  .file-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    font-size: 13px;
+  }
+  .file-info svg { width: 16px; height: 16px; color: var(--danger); flex-shrink: 0; }
+  .file-info span { color: var(--text-secondary); }
+  .file-info strong { color: var(--text-primary); font-weight: 500; }
+
+  /* STATUS BANNER */
+  .status-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    font-size: 15px;
+    font-weight: 500;
+    border: 1px solid transparent;
+  }
+  .status-banner.ok {
+    background: var(--success-bg);
+    border-color: var(--success-border);
+    color: var(--success);
+  }
+  .status-banner.error {
+    background: var(--danger-bg);
+    border-color: var(--danger-border);
+    color: var(--danger);
+  }
+  .status-banner svg { width: 22px; height: 22px; flex-shrink: 0; margin-top: 1px; }
+  .status-detail { font-size: 13px; font-weight: 400; margin-top: 3px; opacity: 0.8; }
+
+  /* CARDS GRID */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .metric-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .metric-card.water::before { background: var(--water); }
+  .metric-card.charges::before { background: #DC2626; }
+  .metric-card.total-np::before { background: #7C3AED; }
+  .metric-card.encargo::before { background: #92400E; }
+  .metric-card.liquido::before { background: #15803D; }
+  .metric-card.fatura::before { background: #1A1A18; }
+
+  .metric-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.2;
+  }
+  .metric-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  .metric-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 20px;
+    margin-top: 4px;
+  }
+  .badge-ok { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+  .badge-err { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
+
+  /* TWO COL */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* SECTION CARD */
+  .section-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .section-title {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .section-title svg { width: 14px; height: 14px; }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    text-align: left;
+    padding: 6px 8px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 8px 8px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table td.mono { font-family: var(--mono); color: var(--text-primary); }
+  .data-table tr.highlight td { background: #FFFBEB; }
+  .data-table tr.total-row td { font-weight: 500; color: var(--text-primary); background: var(--bg); }
+
+  /* FORMULA SECTION */
+  .formula-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .formula-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    font-family: var(--body);
+  }
+  .formula-expr { color: var(--text-primary); }
+  .formula-result {
+    margin-top: 6px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  /* LOG */
+  .log-box {
+    background: #1A1A18;
+    border-radius: 10px;
+    padding: 1.25rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+    max-height: 280px;
+    overflow-y: auto;
+    color: #9B9B97;
+  }
+  .log-line { display: block; }
+  .log-line .ts { color: #444; }
+  .log-line .ok { color: #4ADE80; }
+  .log-line .warn { color: #FCD34D; }
+  .log-line .err { color: #F87171; }
+  .log-line .val { color: #93C5FD; }
+  .log-line .info { color: #C4B5FD; }
+
+  /* EXPORT */
+  .export-row {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .export-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border-strong);
+    background: var(--card);
+    color: var(--text-primary);
+    transition: background 0.15s;
+    font-family: var(--body);
+  }
+  .export-btn:hover { background: var(--bg); }
+  .export-btn svg { width: 15px; height: 15px; }
+
+  /* ERROR BOX */
+  .error-box {
+    display: none;
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    font-size: 14px;
+    color: var(--danger);
+    margin-top: 1rem;
+  }
+  .error-box.active { display: block; }
+
+  /* PREVIEW */
+  .preview-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  #pdf-preview { width: 100%; border-radius: 6px; }
+
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-weight: 500;
+    vertical-align: middle;
+    margin-left: 4px;
+  }
+  .tag-blue { background: #DBEAFE; color: #1E40AF; }
+  .tag-red { background: #FEE2E2; color: #991B1B; }
+  .tag-green { background: #DCFCE7; color: #166534; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 2C6 8 4 11 4 14a8 8 0 0016 0c0-3-2-6-8-12z"/>
+    </svg>
+  </div>
+  <h1>Analisador de Fatura de Água</h1>
+  <span>Águas do Piauí · IFPI</span>
+</div>
+
+<div class="container">
+
+  <!-- UPLOAD -->
+  <div class="upload-section">
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" accept=".pdf" id="file-input">
+      <div class="upload-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14,2 14,8 20,8"/>
+          <line x1="12" y1="12" x2="12" y2="18"/>
+          <polyline points="9,15 12,12 15,15"/>
+        </svg>
+      </div>
+      <div class="upload-title">Carregar fatura em PDF</div>
+      <div class="upload-sub">Arraste o arquivo aqui ou clique para selecionar</div>
+      <button class="upload-btn" onclick="event.stopPropagation();" id="upload-btn-label">Selecionar PDF</button>
+    </div>
+
+    <div class="loading-bar" id="loading-bar"><div class="loading-fill"></div></div>
+    <div class="loading-text" id="loading-text">Extraindo dados da fatura...</div>
+    <div class="error-box" id="error-box"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results" id="results">
+
+    <!-- File info -->
+    <div class="file-info" id="file-info">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>
+      <strong id="file-name-display"></strong>
+      <span>·</span>
+      <span id="file-size-display"></span>
+    </div>
+
+    <!-- Status banner -->
+    <div class="status-banner" id="status-banner">
+      <svg id="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
+      <div>
+        <div id="status-text"></div>
+        <div class="status-detail" id="status-detail"></div>
+      </div>
+    </div>
+
+    <!-- Cards grid -->
+    <div class="cards-grid">
+      <div class="metric-card water">
+        <div class="metric-label">Valor Água</div>
+        <div class="metric-value" id="card-agua">—</div>
+        <div class="metric-sub" id="card-agua-sub"></div>
+      </div>
+      <div class="metric-card charges">
+        <div class="metric-label">Juros + Multas</div>
+        <div class="metric-value" id="card-encargos">—</div>
+        <div class="metric-sub" id="card-encargos-sub"></div>
+      </div>
+      <div class="metric-card total-np">
+        <div class="metric-label">Abatimento</div>
+        <div class="metric-value" id="card-abatimento">—</div>
+        <div class="metric-sub">Se não houver, considerado zero</div>
+      </div>
+      <div class="metric-card total-np">
+        <div class="metric-label">Faturamento Bruto</div>
+        <div class="metric-value" id="card-total-np">—</div>
+        <div class="metric-sub">Água + Juros + Multas − Abatimento</div>
+      </div>
+      <div class="metric-card encargo">
+        <div class="metric-label">Total Tributos (9,45%)</div>
+        <div class="metric-value" id="card-encargo">—</div>
+        <div class="metric-sub">COFINS 3% · CSLL 1% · IRRF 4,8% · PIS 0,65%</div>
+      </div>
+      <div class="metric-card liquido">
+        <div class="metric-label">Valor Líquido</div>
+        <div class="metric-value" id="card-liquido">—</div>
+        <div class="metric-sub" id="card-liquido-sub"></div>
+      </div>
+      <div class="metric-card fatura">
+        <div class="metric-label">Total a Pagar</div>
+        <div class="metric-value" id="card-total">—</div>
+        <div class="metric-sub" id="card-total-badge"></div>
+      </div>
+    </div>
+
+    <!-- Two col: itens + cálculos -->
+    <div class="two-col">
+
+      <!-- Itens extraídos -->
+      <div class="section-card">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+          Itens Extraídos do PDF
+        </div>
+        <table class="data-table" id="items-table">
+          <thead>
+            <tr><th>Descrição</th><th>Ref.</th><th style="text-align:right">Valor</th></tr>
+          </thead>
+          <tbody id="items-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Fórmulas -->
+      <div class="section-card">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h10M4 17h6"/></svg>
+          Memória de Cálculo
+        </div>
+        <div id="formulas-box"></div>
+      </div>
+
+    </div>
+
+    <!-- Log + PDF preview -->
+    <div class="two-col">
+      <div class="section-card">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h5M7 16h8"/></svg>
+          Log de Extração
+        </div>
+        <div class="log-box" id="log-box"></div>
+      </div>
+
+      <div class="section-card" id="preview-section" style="display:none;">
+        <div class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h4"/></svg>
+          Preview do PDF
+        </div>
+        <canvas id="pdf-preview"></canvas>
+      </div>
+    </div>
+
+    <!-- Export row -->
+    <div class="export-row">
+      <button class="export-btn" onclick="exportJSON()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar JSON
+      </button>
+      <button class="export-btn" onclick="exportCSV()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar CSV
+      </button>
+      <button class="export-btn" onclick="resetAll()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        Nova Análise
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let extractedData = null;
+let logLines = [];
+
+function ts() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+}
+
+function addLog(msg, type='info') {
+  logLines.push(`<span class="log-line"><span class="ts">[${ts()}]</span> <span class="${type}">${msg}</span></span>`);
+  document.getElementById('log-box').innerHTML = logLines.join('\n');
+  document.getElementById('log-box').scrollTop = 9999;
+}
+
+function formatBRL(n) {
+  return 'R$ ' + n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function parseBRL(str) {
+  if (!str) return null;
+  const cleaned = str.replace(/R\$\s?/g,'').replace(/\./g,'').replace(',','.').trim();
+  const val = parseFloat(cleaned);
+  return isNaN(val) ? null : val;
+}
+
+/* ─── DICIONÁRIO DE SINÔNIMOS (fuzzy field matching) ───
+   Cada campo é localizado por QUALQUER um destes termos aparecendo na linha.
+   Isso permite funcionar com qualquer layout de fatura, sem depender de posição. */
+const FIELD_SYNONYMS = {
+  valorAgua:   ['VALOR AGUA', 'VALOR ÁGUA', 'CONSUMO DE AGUA', 'CONSUMO DE ÁGUA', 'SERVICO AGUA', 'SERVIÇO ÁGUA', 'SERVICOS DE AGUA', 'AGUA'],
+  juros:       ['JUROS POR ATRASO', 'JUROS DE MORA', 'JUROS'],
+  multa:       ['MULTA POR ATRASO', 'MULTA DE MORA', 'MULTA'],
+  abatimento:  ['ABATIMENTO DE AGUA', 'ABATIMENTO DE ÁGUA', 'ABATIMENTO', 'DESCONTO'],
+  totalPagar:  ['TOTAL A PAGAR', 'VALOR A PAGAR', 'VALOR LIQUIDO', 'VALOR LÍQUIDO', 'TOTAL DA FATURA', 'TOTAL DOS SERVICOS', 'TOTAL DOS SERVIÇOS', 'VALOR TOTAL'],
+};
+
+function normalize(str) {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+}
+
+function extractNumbersFromLine(line) {
+  // O sinal "-" só é tratado como negativo quando encosta diretamente no número
+  // (ex: "-5,90"). Um hífen usado como separador visual (ex: "ÁGUA - R$ 426,62",
+  // com espaço antes/depois) é ignorado e NÃO transforma o valor em negativo.
+  const re = /(-)?(?:R\$)?\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2})/g;
+  const nums = [];
+  let m;
+  while ((m = re.exec(line)) !== null) {
+    const raw = (m[1] ? '-' : '') + m[2];
+    const val = parseBRL(raw);
+    if (val !== null) nums.push(val);
+  }
+  return nums;
+}
+
+function groupItemsIntoLines(items) {
+  const buckets = [];
+  const TOLERANCE = 3;
+  for (const it of items) {
+    if (!it.str || !it.str.trim()) continue;
+    const y = it.transform[5];
+    let bucket = buckets.find(b => Math.abs(b.y - y) <= TOLERANCE);
+    if (!bucket) { bucket = { y, items: [] }; buckets.push(bucket); }
+    bucket.items.push(it);
+  }
+  buckets.sort((a, b) => b.y - a.y);
+  return buckets.map(b => {
+    b.items.sort((a, c) => a.transform[4] - c.transform[4]);
+    return b.items.map(i => i.str).join(' ').replace(/\s+/g, ' ').trim();
+  }).filter(Boolean);
+}
+
+function findField(lines, synonyms, opts) {
+  opts = opts || {};
+  const sumAll = !!opts.sumAll;
+  const absValue = !!opts.absValue;
+  const matches = [];
+  const normSynonyms = synonyms.map(normalize);
+  for (const line of lines) {
+    const normLine = normalize(line);
+    const hit = normSynonyms.find(s => normLine.includes(s));
+    if (!hit) continue;
+    const nums = extractNumbersFromLine(line);
+    if (nums.length === 0) continue;
+    let value = nums[nums.length - 1];
+    if (absValue) value = Math.abs(value);
+    matches.push({ line, term: hit, value });
+    if (!sumAll) break;
+  }
+  if (matches.length === 0) return { value: null, matches: [] };
+  const total = matches.reduce((s, m) => s + m.value, 0);
+  return { value: parseFloat(total.toFixed(2)), matches };
+}
+
+/* ─── PDF PARSING ─── */
+async function extractFromPDF(file) {
+  addLog(`Lendo arquivo: ${file.name}`, 'info');
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  addLog(`PDF carregado — ${pdf.numPages} página(s)`, 'ok');
+
+  let allLines = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageLines = groupItemsIntoLines(content.items);
+    allLines = allLines.concat(pageLines);
+    addLog(`Página ${i} extraída — ${pageLines.length} linha(s) reconstruídas de ${content.items.length} tokens`, 'ok');
+  }
+
+  if (allLines.length === 0) {
+    addLog('Nenhum texto extraível encontrado — este PDF pode ser uma imagem escaneada (OCR de imagem ainda não habilitado nesta versão).', 'err');
+  }
+
+  addLog('Localizando campos por correspondência fuzzy de texto...', 'info');
+
+  const aguaR = findField(allLines, FIELD_SYNONYMS.valorAgua, { sumAll: false });
+  const valorAgua = aguaR.value;
+  addLog(valorAgua !== null
+    ? `Valor Água encontrado ("${aguaR.matches[0].line}") → ${formatBRL(valorAgua)}`
+    : 'Valor Água NÃO encontrado', valorAgua !== null ? 'ok' : 'err');
+
+  const jurosR = findField(allLines, FIELD_SYNONYMS.juros, { sumAll: true });
+  const jurosItems = jurosR.matches.map(m => ({ desc: 'Juros por Atraso', ref: m.line, value: m.value }));
+  addLog(`Juros encontrados: ${jurosItems.length} linha(s) → soma ${formatBRL(jurosR.value || 0)}`, jurosItems.length > 0 ? 'ok' : 'warn');
+
+  const multaR = findField(allLines, FIELD_SYNONYMS.multa, { sumAll: true });
+  const multaItems = multaR.matches.map(m => ({ desc: 'Multa por Atraso', ref: m.line, value: m.value }));
+  addLog(`Multas encontradas: ${multaItems.length} linha(s) → soma ${formatBRL(multaR.value || 0)}`, multaItems.length > 0 ? 'ok' : 'warn');
+
+  const abatimentoR = findField(allLines, FIELD_SYNONYMS.abatimento, { sumAll: true, absValue: true });
+  const abatimento = abatimentoR.value !== null ? abatimentoR.value : 0;
+  addLog(abatimentoR.value !== null
+    ? `Abatimento de Água encontrado → ${formatBRL(abatimento)}`
+    : 'Abatimento de Água não encontrado → considerado ZERO', abatimentoR.value !== null ? 'ok' : 'info');
+
+  const totalR = findField(allLines, FIELD_SYNONYMS.totalPagar, { sumAll: false });
+  const totalPagar = totalR.value;
+  addLog(totalPagar !== null
+    ? `Total a Pagar/Valor Líquido encontrado ("${totalR.matches[0].line}") → ${formatBRL(totalPagar)}`
+    : 'Total a Pagar NÃO encontrado', totalPagar !== null ? 'ok' : 'err');
+
+  try {
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 1.2 });
+    const canvas = document.getElementById('pdf-preview');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    document.getElementById('preview-section').style.display = 'block';
+    addLog('Preview do PDF gerado', 'ok');
+  } catch(e) { addLog('Preview não disponível: ' + e.message, 'warn'); }
+
+  return { valorAgua, jurosItems, multaItems, abatimento, totalPagar };
+}
+
+/* ─── REGRAS TRIBUTÁRIAS (configuráveis — não fixas no código) ─── */
+const TAX_RATES = { COFINS: 0.0300, CSLL: 0.0100, IRRF: 0.0480, PIS: 0.0065 };
+
+/* ─── CALCULATIONS ─── */
+function calculate(data) {
+  const { valorAgua, jurosItems, multaItems, abatimento, totalPagar } = data;
+  const somaJuros = jurosItems.reduce((s,i) => s + i.value, 0);
+  const somaMultas = multaItems.reduce((s,i) => s + i.value, 0);
+
+  const faturamentoBruto = parseFloat(((valorAgua||0) + somaJuros + somaMultas - (abatimento||0)).toFixed(2));
+
+  const cofins = parseFloat((faturamentoBruto * TAX_RATES.COFINS).toFixed(2));
+  const csll   = parseFloat((faturamentoBruto * TAX_RATES.CSLL).toFixed(2));
+  const irrf   = parseFloat((faturamentoBruto * TAX_RATES.IRRF).toFixed(2));
+  const pis    = parseFloat((faturamentoBruto * TAX_RATES.PIS).toFixed(2));
+  const totalTributos = parseFloat((cofins + csll + irrf + pis).toFixed(2));
+
+  const liquido = parseFloat((faturamentoBruto - totalTributos).toFixed(2));
+
+  const TOLERANCIA = 0.01;
+  const diferenca = totalPagar !== null ? parseFloat((liquido - totalPagar).toFixed(2)) : null;
+  const match = totalPagar !== null ? Math.abs(diferenca) <= TOLERANCIA : null;
+
+  addLog(`─── CÁLCULOS ───`, 'info');
+  addLog(`Faturamento Bruto = ${formatBRL(valorAgua||0)} + ${formatBRL(somaJuros)} + ${formatBRL(somaMultas)} - ${formatBRL(abatimento||0)} = ${formatBRL(faturamentoBruto)}`, 'val');
+  addLog(`COFINS (3,00%) = ${formatBRL(cofins)}`, 'val');
+  addLog(`CSLL (1,00%) = ${formatBRL(csll)}`, 'val');
+  addLog(`IRRF (4,80%) = ${formatBRL(irrf)}`, 'val');
+  addLog(`PIS/PASEP (0,65%) = ${formatBRL(pis)}`, 'val');
+  addLog(`Total Tributos (9,45%) = ${formatBRL(totalTributos)}`, 'val');
+  addLog(`Valor Líquido = ${formatBRL(faturamentoBruto)} - ${formatBRL(totalTributos)} = ${formatBRL(liquido)}`, 'val');
+  if (match !== null) {
+    addLog(`Validação: Líquido calculado (${formatBRL(liquido)}) vs valor na fatura (${formatBRL(totalPagar||0)}) → diferença ${formatBRL(diferenca)} → ${match ? 'OK ✓' : 'DIVERGÊNCIA ✗'}`, match ? 'ok' : 'err');
+  }
+
+  return { somaJuros, somaMultas, abatimento: abatimento||0, faturamentoBruto, cofins, csll, irrf, pis, totalTributos, liquido, diferenca, match };
+}
+
+/* ─── RENDER ─── */
+function renderResults(data, calc, fileName, fileSize) {
+  extractedData = { data, calc };
+
+  document.getElementById('file-name-display').textContent = fileName;
+  document.getElementById('file-size-display').textContent = (fileSize/1024).toFixed(1) + ' KB';
+
+  // Status
+  const banner = document.getElementById('status-banner');
+  const icon = document.getElementById('status-icon');
+  const statusText = document.getElementById('status-text');
+  const statusDetail = document.getElementById('status-detail');
+
+  if (data.valorAgua === null || data.totalPagar === null) {
+    banner.className = 'status-banner error';
+    icon.innerHTML = '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
+    statusText.textContent = 'Dados incompletos — extração parcial';
+    statusDetail.textContent = 'Alguns valores não foram localizados no PDF. Verifique o log para detalhes.';
+  } else if (calc.match) {
+    banner.className = 'status-banner ok';
+    icon.innerHTML = '<polyline points="20,6 9,17 4,12"/>';
+    statusText.textContent = 'OK — Valores conferem';
+    statusDetail.textContent = `Valor Líquido (${formatBRL(calc.liquido)}) é igual ao Total a Pagar (${formatBRL(data.totalPagar)}) — consistência confirmada.`;
+  } else {
+    banner.className = 'status-banner error';
+    icon.innerHTML = '<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>';
+    statusText.textContent = 'Divergência encontrada';
+    statusDetail.textContent = `Valor Líquido calculado: ${formatBRL(calc.liquido)} | Total a Pagar na fatura: ${formatBRL(data.totalPagar||0)} | Diferença: ${formatBRL(Math.abs(calc.liquido - (data.totalPagar||0)))}`;
+  }
+
+  // Cards
+  document.getElementById('card-agua').textContent = data.valorAgua !== null ? formatBRL(data.valorAgua) : '—';
+  document.getElementById('card-encargos').textContent = formatBRL(calc.somaJuros + calc.somaMultas);
+  document.getElementById('card-encargos-sub').textContent = `${data.jurosItems.length} juros · ${data.multaItems.length} multas`;
+  document.getElementById('card-abatimento').textContent = formatBRL(calc.abatimento);
+  document.getElementById('card-total-np').textContent = formatBRL(calc.faturamentoBruto);
+  document.getElementById('card-encargo').textContent = formatBRL(calc.totalTributos);
+  document.getElementById('card-liquido').textContent = formatBRL(calc.liquido);
+  document.getElementById('card-total').textContent = data.totalPagar !== null ? formatBRL(data.totalPagar) : '—';
+
+  const badge = document.getElementById('card-total-badge');
+  if (calc.match === true) badge.innerHTML = '<span class="metric-badge badge-ok">✓ Confere</span>';
+  else if (calc.match === false) badge.innerHTML = '<span class="metric-badge badge-err">✗ Divergência</span>';
+
+  const liqSub = document.getElementById('card-liquido-sub');
+  if (calc.match === true) liqSub.innerHTML = '<span class="metric-badge badge-ok">= valor da fatura</span>';
+  else if (calc.match === false) liqSub.innerHTML = '<span class="metric-badge badge-err">≠ valor da fatura</span>';
+
+  // Tabela de itens extraídos
+  const tbody = document.getElementById('items-tbody');
+  tbody.innerHTML = '';
+  const allItems = [
+    { desc: 'Valor Água', ref: '', value: data.valorAgua, type: 'water' },
+    ...data.jurosItems.map(i => ({...i, type:'juros'})),
+    ...data.multaItems.map(i => ({...i, type:'multa'})),
+    { desc: 'Abatimento de Água', ref: '', value: -calc.abatimento, type: 'abatimento' },
+    { desc: 'Valor Líquido / Total a Pagar (na fatura)', ref: '', value: data.totalPagar, type: 'total' },
+  ];
+  for (const item of allItems) {
+    const tr = document.createElement('tr');
+    if (item.type === 'total') tr.className = 'total-row';
+    const tag = item.type === 'juros' ? '<span class="tag tag-red">Juros</span>' :
+                item.type === 'multa' ? '<span class="tag tag-red">Multa</span>' :
+                item.type === 'water' ? '<span class="tag tag-blue">Água</span>' :
+                item.type === 'abatimento' ? '<span class="tag tag-blue">Abatimento</span>' : '';
+    tr.innerHTML = `
+      <td>${item.desc}${tag}</td>
+      <td style="color:var(--text-muted)">${item.ref||''}</td>
+      <td class="mono" style="text-align:right">${item.value !== null ? formatBRL(item.value) : '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  // Tabela de VALIDAÇÃO / AUDITORIA (campo x valor PDF x valor calculado x diferença x status)
+  const TOLERANCIA = 0.01;
+  const auditRows = [
+    { campo: 'Valor Água', pdf: data.valorAgua, calc: data.valorAgua },
+    { campo: 'Juros por Atraso', pdf: calc.somaJuros, calc: calc.somaJuros },
+    { campo: 'Multa por Atraso', pdf: calc.somaMultas, calc: calc.somaMultas },
+    { campo: 'Abatimento de Água', pdf: calc.abatimento, calc: calc.abatimento },
+    { campo: 'COFINS (3,00%)', pdf: null, calc: calc.cofins },
+    { campo: 'CSLL (1,00%)', pdf: null, calc: calc.csll },
+    { campo: 'IRRF (4,80%)', pdf: null, calc: calc.irrf },
+    { campo: 'PIS/PASEP (0,65%)', pdf: null, calc: calc.pis },
+    { campo: 'Valor Líquido / Total a Pagar', pdf: data.totalPagar, calc: calc.liquido },
+  ];
+  let auditHtml = `<table class="audit-table" style="width:100%;border-collapse:collapse;margin-top:1rem">
+    <thead><tr style="text-align:left;border-bottom:2px solid var(--border-strong)">
+      <th style="padding:8px">Campo</th><th style="padding:8px">Valor no PDF</th>
+      <th style="padding:8px">Valor Calculado</th><th style="padding:8px">Diferença</th><th style="padding:8px">Status</th>
+    </tr></thead><tbody>`;
+  for (const r of auditRows) {
+    let status, statusColor;
+    if (r.pdf === null) { status = '— (não consta na fatura)'; statusColor = 'var(--text-muted)'; }
+    else {
+      const diff = parseFloat((r.calc - r.pdf).toFixed(2));
+      if (Math.abs(diff) <= TOLERANCIA) { status = '✔ Correto'; statusColor = 'var(--success)'; }
+      else if (Math.abs(diff) <= 1) { status = '⚠ Divergência'; statusColor = 'var(--warning)'; }
+      else { status = '❌ Erro'; statusColor = 'var(--danger)'; }
+      r.diff = diff;
+    }
+    auditHtml += `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px">${r.campo}</td>
+      <td style="padding:8px" class="mono">${r.pdf !== null ? formatBRL(r.pdf) : '—'}</td>
+      <td style="padding:8px" class="mono">${formatBRL(r.calc)}</td>
+      <td style="padding:8px" class="mono">${r.diff !== undefined ? formatBRL(r.diff) : '—'}</td>
+      <td style="padding:8px;color:${statusColor};font-weight:500">${status}</td>
+    </tr>`;
+  }
+  auditHtml += '</tbody></table>';
+  let auditContainer = document.getElementById('audit-table-container');
+  if (!auditContainer) {
+    auditContainer = document.createElement('div');
+    auditContainer.id = 'audit-table-container';
+    document.getElementById('formulas-box').parentElement.appendChild(auditContainer);
+  }
+  auditContainer.innerHTML = `<h3 style="margin:1.5rem 0 0.5rem;font-family:var(--display)">Auditoria / Validação Automática</h3>${auditHtml}`;
+
+  // Formulas (memória de cálculo)
+  const fb = document.getElementById('formulas-box');
+  fb.innerHTML = `
+    <div class="formula-box">
+      <div class="formula-label">Faturamento Bruto</div>
+      <div class="formula-expr">Água + Juros + Multa − Abatimento</div>
+      <div class="formula-expr">${formatBRL(data.valorAgua||0)} + ${formatBRL(calc.somaJuros)} + ${formatBRL(calc.somaMultas)} − ${formatBRL(calc.abatimento)}</div>
+      <div class="formula-result">${formatBRL(calc.faturamentoBruto)}</div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">Total Tributos (9,45%)</div>
+      <div class="formula-expr">COFINS + CSLL + IRRF + PIS</div>
+      <div class="formula-expr">${formatBRL(calc.cofins)} + ${formatBRL(calc.csll)} + ${formatBRL(calc.irrf)} + ${formatBRL(calc.pis)}</div>
+      <div class="formula-result">${formatBRL(calc.totalTributos)}</div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">Valor Líquido</div>
+      <div class="formula-expr">Faturamento Bruto − Tributos</div>
+      <div class="formula-expr">${formatBRL(calc.faturamentoBruto)} − ${formatBRL(calc.totalTributos)}</div>
+      <div class="formula-result">${formatBRL(calc.liquido)}</div>
+    </div>
+    <div class="formula-box">
+      <div class="formula-label">Validação</div>
+      <div class="formula-expr">Líquido == Valor na Fatura ?</div>
+      <div class="formula-expr">${formatBRL(calc.liquido)} vs ${formatBRL(data.totalPagar||0)}</div>
+      <div class="formula-result" style="color:${calc.match ? 'var(--success)' : 'var(--danger)'}">
+        ${calc.match === true ? '✓ Confere' : calc.match === false ? '✗ Divergência de ' + formatBRL(calc.diferenca) : '— Indefinido'}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('results').classList.add('active');
+}
+
+/* ─── MAIN HANDLER ─── */
+async function handleFile(file) {
+  if (!file || !file.name.toLowerCase().endsWith('.pdf')) {
+    showError('Por favor, selecione um arquivo PDF válido.');
+    return;
+  }
+  logLines = [];
+  document.getElementById('log-box').innerHTML = '';
+  document.getElementById('results').classList.remove('active');
+  document.getElementById('error-box').classList.remove('active');
+  document.getElementById('loading-bar').classList.add('active');
+  document.getElementById('loading-text').classList.add('active');
+  document.getElementById('loading-text').textContent = 'Processando PDF...';
+
+  try {
+    const data = await extractFromPDF(file);
+    const calc = calculate(data);
+    document.getElementById('loading-bar').classList.remove('active');
+    document.getElementById('loading-text').classList.remove('active');
+    renderResults(data, calc, file.name, file.size);
+  } catch(e) {
+    document.getElementById('loading-bar').classList.remove('active');
+    document.getElementById('loading-text').classList.remove('active');
+    showError('Erro ao processar o PDF: ' + e.message);
+    addLog('ERRO: ' + e.message, 'err');
+  }
+}
+
+function showError(msg) {
+  const eb = document.getElementById('error-box');
+  eb.textContent = '⚠ ' + msg;
+  eb.classList.add('active');
+}
+
+/* ─── EVENTS ─── */
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+/* ─── EXPORTS ─── */
+function exportJSON() {
+  if (!extractedData) return;
+  const { data, calc } = extractedData;
+  const obj = {
+    fatura: {
+      valorAgua: data.valorAgua,
+      juros: data.jurosItems,
+      multas: data.multaItems,
+      abatimento: calc.abatimento,
+      totalPagarNaFatura: data.totalPagar,
+    },
+    calculos: {
+      somaJuros: calc.somaJuros,
+      somaMultas: calc.somaMultas,
+      faturamentoBruto: calc.faturamentoBruto,
+      cofins: calc.cofins,
+      csll: calc.csll,
+      irrf: calc.irrf,
+      pis: calc.pis,
+      totalTributos: calc.totalTributos,
+      valorLiquido: calc.liquido,
+      diferenca: calc.diferenca,
+      validacao: calc.match,
+    },
+    geradoEm: new Date().toISOString(),
+  };
+  download('analise_fatura.json', JSON.stringify(obj, null, 2), 'application/json');
+}
+
+function exportCSV() {
+  if (!extractedData) return;
+  const { data, calc } = extractedData;
+  const rows = [
+    ['Campo','Valor'],
+    ['Valor Água', (data.valorAgua||0).toFixed(2)],
+    ['Soma Juros', calc.somaJuros.toFixed(2)],
+    ['Soma Multas', calc.somaMultas.toFixed(2)],
+    ['Abatimento', calc.abatimento.toFixed(2)],
+    ['Faturamento Bruto', calc.faturamentoBruto.toFixed(2)],
+    ['COFINS (3,00%)', calc.cofins.toFixed(2)],
+    ['CSLL (1,00%)', calc.csll.toFixed(2)],
+    ['IRRF (4,80%)', calc.irrf.toFixed(2)],
+    ['PIS/PASEP (0,65%)', calc.pis.toFixed(2)],
+    ['Total Tributos (9,45%)', calc.totalTributos.toFixed(2)],
+    ['Valor Líquido', calc.liquido.toFixed(2)],
+    ['Valor na Fatura', (data.totalPagar||0).toFixed(2)],
+    ['Validação', calc.match === true ? 'Correto' : calc.match === false ? 'Divergência' : 'Indefinido'],
+  ];
+  const csv = rows.map(r => r.join(';')).join('\n');
+  download('analise_fatura.csv', csv, 'text/csv;charset=utf-8;');
+}
+
+function download(name, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = name;
+  a.click();
+}
+
+function resetAll() {
+  document.getElementById('results').classList.remove('active');
+  document.getElementById('error-box').classList.remove('active');
+  document.getElementById('file-input').value = '';
+  logLines = [];
+  document.getElementById('log-box').innerHTML = '';
+  document.getElementById('preview-section').style.display = 'none';
+  extractedData = null;
+}
+</script>
+</body>
+</html>
